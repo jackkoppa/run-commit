@@ -3,73 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Marathon Tracker</title>
+    <title>RunCommit</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background-color: #f4f4f9; color: #333; }
-        .container { max-width: 800px; margin: 0 auto; padding: 15px; }
-        h1, h2 { color: #005a9c; }
-        .day { background-color: #fff; border-radius: 8px; margin-bottom: 15px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .day-header { display: flex; justify-content: space-between; align-items: center; }
-        .day-header h3 { margin: 0; }
-        .day-header span { font-size: 0.9em; color: #666; }
-        .planned, .actual { margin-top: 10px; }
-        textarea { width: 100%; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; padding: 8px; font-family: inherit; margin-top: 5px; }
-        button { background-color: #0078d4; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 1em; margin-top: 5px; margin-right: 5px; }
-        button:hover { background-color: #005a9c; }
-        .status { font-weight: bold; }
-        .status.completed { color: #107c10; }
-        .status.missed { color: #d83b01; }
-        #io-section { background-color: #fff; padding: 15px; margin-top: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        #io-textarea { min-height: 150px; }
+        /* For the neo-brutalist shadow */
+        .neo-shadow {
+            box-shadow: 8px 8px 0px #000;
+        }
+        /* Custom scrollbar for aesthetics */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
-<body>
+<body class="bg-slate-100">
 
-<div class="container">
-    <h1>Marathon Tracker</h1>
-    <div id="plan-container"></div>
+<div class="container mx-auto max-w-2xl p-4 md:p-6">
+    <header class="mb-6">
+        <h1 class="text-4xl font-bold">RunCommit</h1>
+        <p class="text-slate-600">Your adaptive marathon training log.</p>
+    </header>
 
-    <div id="io-section">
-        <h2>Plan Import / Export</h2>
-        <p>Use this to backup your plan or update it with an LLM.</p>
-        <button onclick="exportPlan()">Export Plan for LLM</button>
-        <button onclick="toggleImport()">Import New Plan</button>
-        <div id="import-div" style="display:none;">
-            <textarea id="io-textarea" placeholder="Paste the full JSON from the LLM here..."></textarea>
-            <button onclick="importPlan()">Load Plan</button>
+    <main id="plan-container" class="space-y-5"></main>
+
+    <button onclick="toggleModal('add-workout-modal')" class="fixed bottom-6 right-6 bg-yellow-400 text-black p-4 rounded-full neo-shadow border-2 border-black hover:bg-yellow-500 active:translate-x-1 active:translate-y-1 active:shadow-[4px_4px_0px_#000] transition-all">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+    </button>
+
+    <div id="add-workout-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white p-6 rounded-lg w-full max-w-md border-2 border-black neo-shadow">
+            <h2 class="text-2xl font-bold mb-4">Log a Workout</h2>
+            <div class="space-y-4">
+                <div>
+                    <label for="workout-date" class="font-semibold">Date</label>
+                    <input type="date" id="workout-date" class="w-full p-2 border-2 border-black rounded mt-1">
+                </div>
+                <div>
+                    <label for="workout-type" class="font-semibold">Activity</label>
+                    <select id="workout-type" class="w-full p-2 border-2 border-black rounded mt-1"></select>
+                </div>
+                <div>
+                    <label for="workout-notes" class="font-semibold">Notes / Actual Effort</label>
+                    <textarea id="workout-notes" rows="3" placeholder="e.g., 5.1 miles @ 8:45/mi pace. Felt strong." class="w-full p-2 border-2 border-black rounded mt-1"></textarea>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button onclick="toggleModal('add-workout-modal')" class="bg-slate-200 text-black py-2 px-4 rounded border-2 border-black font-semibold hover:bg-slate-300">Cancel</button>
+                    <button onclick="saveUnplannedWorkout()" class="bg-yellow-400 text-black py-2 px-4 rounded border-2 border-black font-bold hover:bg-yellow-500">Save Workout</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="io-section" class="bg-white p-6 mt-8 rounded-lg border-2 border-black neo-shadow">
+        <h2 class="text-2xl font-bold mb-2">Plan Management</h2>
+        <p class="text-slate-600 mb-4">Export your progress to an LLM for an updated plan, then import the result.</p>
+        <div class="flex space-x-2">
+             <button onclick="exportPlan()" class="bg-blue-500 text-white py-2 px-4 rounded border-2 border-black font-semibold hover:bg-blue-600 flex-1">Export for LLM</button>
+            <button onclick="toggleImport()" class="bg-slate-200 text-black py-2 px-4 rounded border-2 border-black font-semibold hover:bg-slate-300">Import New</button>
+        </div>
+        <div id="import-div" class="hidden mt-4">
+            <textarea id="io-textarea" class="w-full p-2 border-2 border-black rounded h-40" placeholder="Paste the full JSON from the LLM here..."></textarea>
+            <button onclick="importPlan()" class="w-full mt-2 bg-green-500 text-white py-2 px-4 rounded border-2 border-black font-bold hover:bg-green-600">Load Plan</button>
         </div>
     </div>
 </div>
 
 <script>
 // --- INITIAL DATA & STRUCTURE ---
-// This is where the training plan lives.
-// When you get a new plan from an LLM, you'll replace this object.
 const initialPlan = {
     "version": 1,
     "goal": "Marathon 3:15",
-    "startDate": "2025-10-20",
+    "startDate": "2025-10-13", // Start date is Monday of the current week
     "legend": {
-        "LR": "Long Run", "E": "Easy Run", "MP": "Marathon Pace Run", "T": "Tempo Run", "S_A": "Strength A", "S_B": "Strength B", "XT": "Cross-Training", "R": "Rest"
+        "LR": "Long Run", "E": "Easy Run", "MP": "Marathon Pace Run", "T": "Tempo Run", 
+        "S_A": "Strength A (Glutes & Core)", "S_B": "Strength B (Power & Stability)", 
+        "XT": "Cross-Training", "R": "Rest"
     },
     "schedule": [
-        // Week 1
-        {"day": 1, "plan": "R"}, {"day": 2, "plan": "E 4mi"}, {"day": 3, "plan": "S_A"}, {"day": 4, "plan": "R"}, {"day": 5, "plan": "R"}, {"day": 6, "plan": "LR 10mi"}, {"day": 7, "plan": "R"},
-        // Week 2
-        {"day": 8, "plan": "R"}, {"day": 9, "plan": "E 4mi"}, {"day": 10, "plan": "Workout: 2mi WU, 2mi @MP, 1mi CD"}, {"day": 11, "plan": "S_A"}, {"day": 12, "plan": "R"}, {"day": 13, "plan": "LR 12mi"}, {"day": 14, "plan": "R"},
-        // Week 3
+        // Week 0 (This week)
+        {"day": 1, "plan": "R"}, 
+        {"day": 2, "plan": "E 4mi"}, // Your requested 4-miler for this week (Tuesday)
+        {"day": 3, "plan": "R"}, 
+        {"day": 4, "plan": "S_A"},
+        {"day": 5, "plan": "R"}, 
+        {"day": 6, "plan": "LR 10mi"}, 
+        {"day": 7, "plan": "R"},
+        // Week 1 (Original plan starts now)
+        {"day": 8, "plan": "R"}, 
+        {"day": 9, "plan": "E 4mi"}, 
+        {"day": 10, "plan": "Workout: 2mi WU, 2mi @MP, 1mi CD"}, 
+        {"day": 11, "plan": "S_A"}, 
+        {"day": 12, "plan": "R"}, 
+        {"day": 13, "plan": "LR 12mi"}, 
+        {"day": 14, "plan": "R"},
+        // ...The rest of the plan continues from here...
         {"day": 15, "plan": "R"}, {"day": 16, "plan": "E 5mi"}, {"day": 17, "plan": "Workout: 2mi WU, 3mi @MP, 1mi CD"}, {"day": 18, "plan": "S_B"}, {"day": 19, "plan": "R"}, {"day": 20, "plan": "LR 14mi"}, {"day": 21, "plan": "R"},
-        // Week 4
         {"day": 22, "plan": "R"}, {"day": 23, "plan": "E 4mi"}, {"day": 24, "plan": "Workout: 1mi WU, 3x1mi @T w/ 3' jog, 1mi CD"}, {"day": 25, "plan": "R"}, {"day": 26, "plan": "R"}, {"day": 27, "plan": "LR 11mi"}, {"day": 28, "plan": "R"},
-        // Week 5
         {"day": 29, "plan": "R"}, {"day": 30, "plan": "E 5mi"}, {"day": 31, "plan": "Workout: 2mi WU, 4mi @MP, 1mi CD"}, {"day": 32, "plan": "S_A"}, {"day": 33, "plan": "R"}, {"day": 34, "plan": "LR 16mi"}, {"day": 35, "plan": "R"},
-        // Week 6
         {"day": 36, "plan": "R"}, {"day": 37, "plan": "E 5mi"}, {"day": 38, "plan": "Workout: 1mi WU, 2x2mi @T w/ 4' jog, 1mi CD"}, {"day": 39, "plan": "S_B"}, {"day": 40, "plan": "R"}, {"day": 41, "plan": "LR 17mi"}, {"day": 42, "plan": "R"},
-        // Week 7
         {"day": 43, "plan": "R"}, {"day": 44, "plan": "E 6mi"}, {"day": 45, "plan": "Workout: 7mi w/ 5mi @MP"}, {"day": 46, "plan": "R"}, {"day": 47, "plan": "R"}, {"day": 48, "plan": "LR 18mi"}, {"day": 49, "plan": "R"},
-        // Week 8
         {"day": 50, "plan": "R"}, {"day": 51, "plan": "E 4mi"}, {"day": 52, "plan": "Workout: 1mi WU, 4x1mi @T w/ 3' jog, 1mi CD"}, {"day": 53, "plan": "S_A"}, {"day": 54, "plan": "R"}, {"day": 55, "plan": "LR 14mi"}, {"day": 56, "plan": "R"},
-        // Week 9
         {"day": 57, "plan": "R"}, {"day": 58, "plan": "E 5mi"}, {"day": 59, "plan": "Workout: 8mi w/ 6mi @MP"}, {"day": 60, "plan": "S_B"}, {"day": 61, "plan": "R"}, {"day": 62, "plan": "LR 20mi"}, {"day": 63, "plan": "R"}
     ]
 };
@@ -79,124 +115,215 @@ let appData = {};
 
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
+    populateWorkoutTypes();
     renderPlan();
 });
 
 function loadData() {
-    const savedData = localStorage.getItem('marathonTrackerData');
+    const savedData = localStorage.getItem('runCommitData');
     if (savedData) {
         appData = JSON.parse(savedData);
-        // Ensure the initial plan is loaded if no plan exists in storage
         if (!appData.plans || appData.plans.length === 0) {
-            appData = {
-                currentPlanVersion: 1,
-                plans: [initialPlan],
-                completed: {} // { 'day_1': 'actual workout notes', 'day_2': '...' }
-            };
+            appData = { currentPlanVersion: 1, plans: [initialPlan], completed: {} };
             saveData();
         }
     } else {
-        appData = {
-            currentPlanVersion: 1,
-            plans: [initialPlan],
-            completed: {}
-        };
+        appData = { currentPlanVersion: 1, plans: [initialPlan], completed: {} };
         saveData();
     }
 }
 
 function saveData() {
-    localStorage.setItem('marathonTrackerData', JSON.stringify(appData));
+    localStorage.setItem('runCommitData', JSON.stringify(appData));
+    renderPlan(); // Always re-render after a data change
 }
 
 function getCurrentPlan() {
-    return appData.plans.find(p => p.version === appData.currentPlanVersion);
+    return appData.plans.find(p => p.version === appData.currentPlanVersion) || appData.plans[0];
+}
+
+/**
+ * Parses a plan string (e.g., "E 4mi") into human-readable text using the legend.
+ * @param {string} planString The abbreviated plan string.
+ * @param {object} legend The legend object for lookups.
+ * @returns {string} The full, readable workout description.
+ */
+function parsePlanText(planString, legend) {
+    let result = planString;
+    // Use a regex to replace all occurrences of legend keys
+    Object.keys(legend).forEach(key => {
+        // Regex ensures we match whole words/abbreviations (e.g., doesn't replace 'R' in 'LR')
+        const regex = new RegExp(`\\b${key}\\b`, 'g');
+        result = result.replace(regex, legend[key]);
+    });
+    return result;
 }
 
 function renderPlan() {
     const plan = getCurrentPlan();
-    if (!plan) {
-        document.getElementById('plan-container').innerHTML = '<p>No plan found!</p>';
-        return;
-    }
+    if (!plan) return;
 
     const container = document.getElementById('plan-container');
-    container.innerHTML = `<h2>Plan v${plan.version} - Goal: ${plan.goal}</h2>`;
-    const startDate = new Date(plan.startDate + 'T00:00:00'); // Ensure local timezone
+    container.innerHTML = ''; // Clear previous render
+    const startDate = new Date(plan.startDate + 'T00:00:00');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    
+    // Sort schedule by day to handle any date edits
+    const sortedSchedule = [...plan.schedule].sort((a, b) => a.day - b.day);
 
-    plan.schedule.forEach(item => {
-        if (item.plan === "R") return; // Don't show rest days
+    sortedSchedule.forEach(item => {
+        if (item.plan === "R") return;
 
         const itemDate = new Date(startDate);
         itemDate.setDate(startDate.getDate() + item.day - 1);
+        const dateString = itemDate.toISOString().split('T')[0];
 
         const isPast = itemDate < today;
         const actual = appData.completed[`day_${item.day}`] || "";
-        const status = actual ? "COMPLETED" : (isPast ? "MISSED" : "UPCOMING");
-        const statusClass = actual ? "completed" : (isPast ? "missed" : "");
+        let status, statusClass, statusText;
+
+        if (actual === "MISSED") {
+            status = 'missed'; statusClass = 'bg-red-200 text-red-800'; statusText = 'Missed';
+        } else if (actual) {
+            status = 'completed'; statusClass = 'bg-green-200 text-green-800'; statusText = 'Completed';
+        } else if (isPast) {
+            status = 'pending'; statusClass = 'bg-gray-200 text-gray-800'; statusText = 'Pending';
+        } else {
+            status = 'upcoming'; statusClass = 'bg-blue-200 text-blue-800'; statusText = 'Upcoming';
+        }
 
         const dayEl = document.createElement('div');
-        dayEl.className = 'day';
+        dayEl.className = 'bg-white p-4 rounded-lg border-2 border-black neo-shadow';
         dayEl.innerHTML = `
-            <div class="day-header">
-                <h3>${itemDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</h3>
-                <span class="status ${statusClass}">${status}</span>
+            <div class="flex justify-between items-start">
+                <div>
+                    <div class="flex items-center space-x-2">
+                         <span class="text-sm font-bold px-2 py-0.5 rounded-full ${statusClass}">${statusText}</span>
+                         <input type="date" value="${dateString}" onchange="changeWorkoutDate(${item.day}, this.value)" class="text-lg font-bold bg-transparent">
+                    </div>
+                    <p class="mt-1 text-slate-800">${parsePlanText(item.plan, plan.legend)}</p>
+                </div>
+                ${ status !== 'completed' && status !== 'missed' && isPast ? `<button onclick="markAsMissed(${item.day})" class="text-sm bg-red-500 text-white font-semibold py-1 px-3 rounded border-2 border-black hover:bg-red-600">Mark Missed</button>` : ''}
             </div>
-            <div class="planned"><strong>Planned:</strong> ${item.plan}</div>
-            <div class="actual">
-                <strong>Actual:</strong>
-                <textarea id="actual-${item.day}" onchange="saveActual(${item.day})">${actual}</textarea>
+            <div class="mt-2">
+                <textarea class="w-full p-2 border-2 border-black rounded text-sm" 
+                          onchange="saveActual(${item.day}, this.value)" 
+                          placeholder="Log your actual effort here...">${actual === "MISSED" ? '' : actual}</textarea>
             </div>
         `;
         container.appendChild(dayEl);
     });
 }
 
-function saveActual(day) {
-    const textarea = document.getElementById(`actual-${day}`);
-    appData.completed[`day_${day}`] = textarea.value.trim();
+function saveActual(day, value) {
+    const trimmedValue = value.trim();
+    if (trimmedValue) {
+        appData.completed[`day_${day}`] = trimmedValue;
+    } else {
+        delete appData.completed[`day_${day}`]; // Clear if empty
+    }
     saveData();
-    renderPlan(); // Re-render to update status
+}
+
+function markAsMissed(day) {
+    appData.completed[`day_${day}`] = "MISSED";
+    saveData();
+}
+
+function changeWorkoutDate(oldDay, newDateString) {
+    const plan = getCurrentPlan();
+    const startDate = new Date(plan.startDate + 'T00:00:00');
+    const newDate = new Date(newDateString + 'T00:00:00');
+    
+    // Calculate new day number
+    const diffTime = Math.abs(newDate - startDate);
+    const newDay = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+    // Find the workout and update its day
+    const workoutItem = plan.schedule.find(item => item.day === oldDay);
+    if (workoutItem) {
+        workoutItem.day = newDay;
+    }
+    
+    // Move completed data if it exists
+    if (appData.completed[`day_${oldDay}`]) {
+        appData.completed[`day_${newDay}`] = appData.completed[`day_${oldDay}`];
+        delete appData.completed[`day_${oldDay}`];
+    }
+    saveData();
+}
+
+function toggleModal(modalId) {
+    const modal = document.getElementById(modalId);
+    modal.classList.toggle('hidden');
+}
+
+function populateWorkoutTypes() {
+    const select = document.getElementById('workout-type');
+    select.innerHTML = ''; // Clear existing
+    const legend = getCurrentPlan().legend;
+    for (const key in legend) {
+        // Create an option for a full workout, not just the component
+        const planString = key.startsWith('S_') ? key : `${key} workout`;
+        const option = document.createElement('option');
+        option.value = planString;
+        option.textContent = parsePlanText(planString, legend);
+        select.appendChild(option);
+    }
+}
+
+function saveUnplannedWorkout() {
+    const dateVal = document.getElementById('workout-date').value;
+    const typeVal = document.getElementById('workout-type').value;
+    const notesVal = document.getElementById('workout-notes').value.trim();
+
+    if (!dateVal || !notesVal) {
+        alert("Please select a date and add some notes.");
+        return;
+    }
+
+    const plan = getCurrentPlan();
+    const startDate = new Date(plan.startDate + 'T00:00:00');
+    const workoutDate = new Date(dateVal + 'T00:00:00');
+    
+    const diffTime = Math.abs(workoutDate - startDate);
+    const day = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Add to schedule if it doesn't exist for that day
+    if (!plan.schedule.some(item => item.day === day)) {
+        plan.schedule.push({ day: day, plan: typeVal });
+    }
+    
+    appData.completed[`day_${day}`] = notesVal;
+    saveData();
+    toggleModal('add-workout-modal');
+    
+    // Clear form
+    document.getElementById('workout-date').value = '';
+    document.getElementById('workout-notes').value = '';
 }
 
 function toggleImport() {
-    const importDiv = document.getElementById('import-div');
-    importDiv.style.display = importDiv.style.display === 'none' ? 'block' : 'none';
+    document.getElementById('import-div').classList.toggle('hidden');
 }
 
 function exportPlan() {
     const plan = getCurrentPlan();
     const exportObject = {
-        prompt: `
-You are an expert running coach AI. Analyze the provided training plan and the user's completed workouts to generate a new, revised weekly schedule.
-
-**User's Goal:** ${plan.goal}
-**Current Plan Version:** ${plan.version}
-**Analysis Task:**
-1.  Review the 'completed' log. Note any patterns: missed workouts, consistently slower/faster paces, comments about difficulty, etc.
-2.  Based on the analysis, adjust the *remaining, uncompleted* workouts in the schedule.
-3.  Do not change past workouts. Keep the day numbers consistent.
-4.  If a workout type is changed (e.g., MP run to Tempo), ensure it aligns with standard marathon training principles.
-5.  Increase the 'version' number by 1.
-6.  Keep the JSON structure identical. Use the provided 'legend' for workout abbreviations. Do not add new abbreviations without defining them in the legend.
-
-**Your response MUST be ONLY the updated JSON object, starting with { and ending with }.**
-`,
-        data: {
-            ...plan,
-            completed: appData.completed
-        }
+        prompt: `You are an expert running coach AI. Analyze the provided training plan and the user's completed workouts to generate a new, revised weekly schedule. User's Goal: ${plan.goal}. Current Plan Version: ${plan.version}. Analyze the 'completed' log for patterns (missed workouts, pace comments, etc.). Adjust the *remaining, uncompleted* workouts in the schedule. Do not change past workouts. Keep day numbers consistent. Increase the 'version' number by 1. Keep the JSON structure identical and use the provided 'legend' for abbreviations. Your response MUST be ONLY the updated JSON object, starting with { and ending with }.`,
+        data: { ...plan, completed: appData.completed }
     };
 
     const exportString = JSON.stringify(exportObject, null, 2);
     const ioTextarea = document.getElementById('io-textarea');
     ioTextarea.value = exportString;
-    toggleImport();
-    ioTextarea.select();
-    document.execCommand('copy');
-    alert('Plan data and LLM prompt copied to clipboard!');
+    if (document.getElementById('import-div').classList.contains('hidden')) {
+        toggleImport();
+    }
+    navigator.clipboard.writeText(exportString).then(() => {
+        alert('Plan data and LLM prompt copied to clipboard!');
+    });
 }
 
 
@@ -204,23 +331,16 @@ function importPlan() {
     const ioTextarea = document.getElementById('io-textarea');
     try {
         const newPlan = JSON.parse(ioTextarea.value);
-        if (!newPlan.version || !newPlan.schedule) {
-            throw new Error("Invalid plan format.");
-        }
-
-        // Check if this version already exists
+        if (!newPlan.version || !newPlan.schedule) throw new Error("Invalid plan format.");
         if (appData.plans.some(p => p.version === newPlan.version)) {
             alert(`Error: Plan version ${newPlan.version} already exists.`);
             return;
         }
 
-        // The LLM response will include 'completed' data, which we don't need in the plan itself.
         delete newPlan.completed; 
-
         appData.plans.push(newPlan);
         appData.currentPlanVersion = newPlan.version;
         saveData();
-        renderPlan();
         ioTextarea.value = "";
         toggleImport();
         alert(`Successfully imported plan version ${newPlan.version}!`);
