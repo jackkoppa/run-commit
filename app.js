@@ -93,7 +93,9 @@ function renderPlan() {
                          <span class="text-sm font-bold px-2 py-0.5 rounded-full ${statusClass}">${statusText}</span>
                          <input type="date" value="${dateString}" onchange="changeWorkoutDate(${item.day}, this.value)" class="text-lg font-bold bg-transparent">
                     </div>
-                    <p class="mt-1 text-slate-800">${parsePlanText(item.plan, plan.legend)}</p>
+                    <input type="text" value="${parsePlanText(item.plan, plan.legend)}" 
+                           onblur="updateWorkoutPlan(${item.day}, this.value)" 
+                           class="mt-1 w-full p-2 border-2 border-black rounded text-slate-800" />
                 </div>
                 ${ status !== 'completed' && status !== 'missed' && isPast ? `<button onclick="markAsMissed(${item.day})" class="text-sm bg-red-500 text-white font-semibold py-1 px-3 rounded border-2 border-black hover:bg-red-600">Mark Missed</button>` : ''}
             </div>
@@ -127,8 +129,9 @@ function changeWorkoutDate(oldDay, newDateString) {
     const startDate = new Date(plan.startDate + 'T00:00:00');
     const newDate = new Date(newDateString + 'T00:00:00');
     
-    const diffTime = Math.abs(newDate - startDate);
-    const newDay = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const signedDiffDays = Math.floor((newDate - startDate) / msPerDay);
+    const newDay = signedDiffDays + 1;
 
     const workoutItem = plan.schedule.find(item => item.day === oldDay);
     if (workoutItem) { workoutItem.day = newDay; }
@@ -171,8 +174,9 @@ function saveUnplannedWorkout() {
     const startDate = new Date(plan.startDate + 'T00:00:00');
     const workoutDate = new Date(dateVal + 'T00:00:00');
     
-    const diffTime = Math.abs(workoutDate - startDate);
-    const day = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const signedDiffDays = Math.floor((workoutDate - startDate) / msPerDay);
+    const day = signedDiffDays + 1;
     
     if (!plan.schedule.some(item => item.day === day)) {
         plan.schedule.push({ day: day, plan: typeVal });
@@ -184,6 +188,17 @@ function saveUnplannedWorkout() {
     
     document.getElementById('workout-date').value = '';
     document.getElementById('workout-notes').value = '';
+}
+
+function updateWorkoutPlan(day, newPlanString) {
+    const trimmed = (newPlanString || '').trim();
+    if (!trimmed) return; 
+    const plan = getCurrentPlan();
+    const workoutItem = plan.schedule.find(item => item.day === day);
+    if (workoutItem) {
+        workoutItem.plan = trimmed;
+        saveData();
+    }
 }
 
 function toggleImport() {
