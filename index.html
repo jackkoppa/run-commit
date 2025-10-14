@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marathon Tracker</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background-color: #f4f4f9; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; padding: 15px; }
+        h1, h2 { color: #005a9c; }
+        .day { background-color: #fff; border-radius: 8px; margin-bottom: 15px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .day-header { display: flex; justify-content: space-between; align-items: center; }
+        .day-header h3 { margin: 0; }
+        .day-header span { font-size: 0.9em; color: #666; }
+        .planned, .actual { margin-top: 10px; }
+        textarea { width: 100%; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; padding: 8px; font-family: inherit; margin-top: 5px; }
+        button { background-color: #0078d4; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 1em; margin-top: 5px; margin-right: 5px; }
+        button:hover { background-color: #005a9c; }
+        .status { font-weight: bold; }
+        .status.completed { color: #107c10; }
+        .status.missed { color: #d83b01; }
+        #io-section { background-color: #fff; padding: 15px; margin-top: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        #io-textarea { min-height: 150px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Marathon Tracker</h1>
+    <div id="plan-container"></div>
+
+    <div id="io-section">
+        <h2>Plan Import / Export</h2>
+        <p>Use this to backup your plan or update it with an LLM.</p>
+        <button onclick="exportPlan()">Export Plan for LLM</button>
+        <button onclick="toggleImport()">Import New Plan</button>
+        <div id="import-div" style="display:none;">
+            <textarea id="io-textarea" placeholder="Paste the full JSON from the LLM here..."></textarea>
+            <button onclick="importPlan()">Load Plan</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- INITIAL DATA & STRUCTURE ---
+// This is where the training plan lives.
+// When you get a new plan from an LLM, you'll replace this object.
+const initialPlan = {
+    "version": 1,
+    "goal": "Marathon 3:15",
+    "startDate": "2025-10-20",
+    "legend": {
+        "LR": "Long Run", "E": "Easy Run", "MP": "Marathon Pace Run", "T": "Tempo Run", "S_A": "Strength A", "S_B": "Strength B", "XT": "Cross-Training", "R": "Rest"
+    },
+    "schedule": [
+        // Week 1
+        {"day": 1, "plan": "R"}, {"day": 2, "plan": "E 4mi"}, {"day": 3, "plan": "S_A"}, {"day": 4, "plan": "R"}, {"day": 5, "plan": "R"}, {"day": 6, "plan": "LR 10mi"}, {"day": 7, "plan": "R"},
+        // Week 2
+        {"day": 8, "plan": "R"}, {"day": 9, "plan": "E 4mi"}, {"day": 10, "plan": "Workout: 2mi WU, 2mi @MP, 1mi CD"}, {"day": 11, "plan": "S_A"}, {"day": 12, "plan": "R"}, {"day": 13, "plan": "LR 12mi"}, {"day": 14, "plan": "R"},
+        // Week 3
+        {"day": 15, "plan": "R"}, {"day": 16, "plan": "E 5mi"}, {"day": 17, "plan": "Workout: 2mi WU, 3mi @MP, 1mi CD"}, {"day": 18, "plan": "S_B"}, {"day": 19, "plan": "R"}, {"day": 20, "plan": "LR 14mi"}, {"day": 21, "plan": "R"},
+        // Week 4
+        {"day": 22, "plan": "R"}, {"day": 23, "plan": "E 4mi"}, {"day": 24, "plan": "Workout: 1mi WU, 3x1mi @T w/ 3' jog, 1mi CD"}, {"day": 25, "plan": "R"}, {"day": 26, "plan": "R"}, {"day": 27, "plan": "LR 11mi"}, {"day": 28, "plan": "R"},
+        // Week 5
+        {"day": 29, "plan": "R"}, {"day": 30, "plan": "E 5mi"}, {"day": 31, "plan": "Workout: 2mi WU, 4mi @MP, 1mi CD"}, {"day": 32, "plan": "S_A"}, {"day": 33, "plan": "R"}, {"day": 34, "plan": "LR 16mi"}, {"day": 35, "plan": "R"},
+        // Week 6
+        {"day": 36, "plan": "R"}, {"day": 37, "plan": "E 5mi"}, {"day": 38, "plan": "Workout: 1mi WU, 2x2mi @T w/ 4' jog, 1mi CD"}, {"day": 39, "plan": "S_B"}, {"day": 40, "plan": "R"}, {"day": 41, "plan": "LR 17mi"}, {"day": 42, "plan": "R"},
+        // Week 7
+        {"day": 43, "plan": "R"}, {"day": 44, "plan": "E 6mi"}, {"day": 45, "plan": "Workout: 7mi w/ 5mi @MP"}, {"day": 46, "plan": "R"}, {"day": 47, "plan": "R"}, {"day": 48, "plan": "LR 18mi"}, {"day": 49, "plan": "R"},
+        // Week 8
+        {"day": 50, "plan": "R"}, {"day": 51, "plan": "E 4mi"}, {"day": 52, "plan": "Workout: 1mi WU, 4x1mi @T w/ 3' jog, 1mi CD"}, {"day": 53, "plan": "S_A"}, {"day": 54, "plan": "R"}, {"day": 55, "plan": "LR 14mi"}, {"day": 56, "plan": "R"},
+        // Week 9
+        {"day": 57, "plan": "R"}, {"day": 58, "plan": "E 5mi"}, {"day": 59, "plan": "Workout: 8mi w/ 6mi @MP"}, {"day": 60, "plan": "S_B"}, {"day": 61, "plan": "R"}, {"day": 62, "plan": "LR 20mi"}, {"day": 63, "plan": "R"}
+    ]
+};
+// --- END OF PLAN DATA ---
+
+let appData = {};
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadData();
+    renderPlan();
+});
+
+function loadData() {
+    const savedData = localStorage.getItem('marathonTrackerData');
+    if (savedData) {
+        appData = JSON.parse(savedData);
+        // Ensure the initial plan is loaded if no plan exists in storage
+        if (!appData.plans || appData.plans.length === 0) {
+            appData = {
+                currentPlanVersion: 1,
+                plans: [initialPlan],
+                completed: {} // { 'day_1': 'actual workout notes', 'day_2': '...' }
+            };
+            saveData();
+        }
+    } else {
+        appData = {
+            currentPlanVersion: 1,
+            plans: [initialPlan],
+            completed: {}
+        };
+        saveData();
+    }
+}
+
+function saveData() {
+    localStorage.setItem('marathonTrackerData', JSON.stringify(appData));
+}
+
+function getCurrentPlan() {
+    return appData.plans.find(p => p.version === appData.currentPlanVersion);
+}
+
+function renderPlan() {
+    const plan = getCurrentPlan();
+    if (!plan) {
+        document.getElementById('plan-container').innerHTML = '<p>No plan found!</p>';
+        return;
+    }
+
+    const container = document.getElementById('plan-container');
+    container.innerHTML = `<h2>Plan v${plan.version} - Goal: ${plan.goal}</h2>`;
+    const startDate = new Date(plan.startDate + 'T00:00:00'); // Ensure local timezone
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    plan.schedule.forEach(item => {
+        if (item.plan === "R") return; // Don't show rest days
+
+        const itemDate = new Date(startDate);
+        itemDate.setDate(startDate.getDate() + item.day - 1);
+
+        const isPast = itemDate < today;
+        const actual = appData.completed[`day_${item.day}`] || "";
+        const status = actual ? "COMPLETED" : (isPast ? "MISSED" : "UPCOMING");
+        const statusClass = actual ? "completed" : (isPast ? "missed" : "");
+
+        const dayEl = document.createElement('div');
+        dayEl.className = 'day';
+        dayEl.innerHTML = `
+            <div class="day-header">
+                <h3>${itemDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</h3>
+                <span class="status ${statusClass}">${status}</span>
+            </div>
+            <div class="planned"><strong>Planned:</strong> ${item.plan}</div>
+            <div class="actual">
+                <strong>Actual:</strong>
+                <textarea id="actual-${item.day}" onchange="saveActual(${item.day})">${actual}</textarea>
+            </div>
+        `;
+        container.appendChild(dayEl);
+    });
+}
+
+function saveActual(day) {
+    const textarea = document.getElementById(`actual-${day}`);
+    appData.completed[`day_${day}`] = textarea.value.trim();
+    saveData();
+    renderPlan(); // Re-render to update status
+}
+
+function toggleImport() {
+    const importDiv = document.getElementById('import-div');
+    importDiv.style.display = importDiv.style.display === 'none' ? 'block' : 'none';
+}
+
+function exportPlan() {
+    const plan = getCurrentPlan();
+    const exportObject = {
+        prompt: `
+You are an expert running coach AI. Analyze the provided training plan and the user's completed workouts to generate a new, revised weekly schedule.
+
+**User's Goal:** ${plan.goal}
+**Current Plan Version:** ${plan.version}
+**Analysis Task:**
+1.  Review the 'completed' log. Note any patterns: missed workouts, consistently slower/faster paces, comments about difficulty, etc.
+2.  Based on the analysis, adjust the *remaining, uncompleted* workouts in the schedule.
+3.  Do not change past workouts. Keep the day numbers consistent.
+4.  If a workout type is changed (e.g., MP run to Tempo), ensure it aligns with standard marathon training principles.
+5.  Increase the 'version' number by 1.
+6.  Keep the JSON structure identical. Use the provided 'legend' for workout abbreviations. Do not add new abbreviations without defining them in the legend.
+
+**Your response MUST be ONLY the updated JSON object, starting with { and ending with }.**
+`,
+        data: {
+            ...plan,
+            completed: appData.completed
+        }
+    };
+
+    const exportString = JSON.stringify(exportObject, null, 2);
+    const ioTextarea = document.getElementById('io-textarea');
+    ioTextarea.value = exportString;
+    toggleImport();
+    ioTextarea.select();
+    document.execCommand('copy');
+    alert('Plan data and LLM prompt copied to clipboard!');
+}
+
+
+function importPlan() {
+    const ioTextarea = document.getElementById('io-textarea');
+    try {
+        const newPlan = JSON.parse(ioTextarea.value);
+        if (!newPlan.version || !newPlan.schedule) {
+            throw new Error("Invalid plan format.");
+        }
+
+        // Check if this version already exists
+        if (appData.plans.some(p => p.version === newPlan.version)) {
+            alert(`Error: Plan version ${newPlan.version} already exists.`);
+            return;
+        }
+
+        // The LLM response will include 'completed' data, which we don't need in the plan itself.
+        delete newPlan.completed; 
+
+        appData.plans.push(newPlan);
+        appData.currentPlanVersion = newPlan.version;
+        saveData();
+        renderPlan();
+        ioTextarea.value = "";
+        toggleImport();
+        alert(`Successfully imported plan version ${newPlan.version}!`);
+    } catch (e) {
+        alert("Error parsing plan. Please make sure it's valid JSON. Error: " + e.message);
+    }
+}
+</script>
+
+</body>
+</html>
