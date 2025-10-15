@@ -33,7 +33,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
     </button>
 
-    <div id="add-workout-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+    <div id="add-workout-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
         <div class="bg-white p-6 rounded-lg w-full max-w-md border-2 border-black neo-shadow">
             <h2 class="text-2xl font-bold mb-4">Log a Workout</h2>
             <div class="space-y-4">
@@ -44,6 +44,47 @@
                     <button onclick="toggleModal('add-workout-modal')" class="bg-slate-200 text-black py-2 px-4 rounded border-2 border-black font-semibold hover:bg-slate-300">Cancel</button>
                     <button onclick="saveUnplannedWorkout()" class="bg-yellow-400 text-black py-2 px-4 rounded border-2 border-black font-bold hover:bg-yellow-500">Save Workout</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="user-prompt-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white p-6 rounded-lg w-full max-w-2xl border-2 border-black neo-shadow">
+            <h2 class="text-2xl font-bold mb-4">Set Your Training Goals</h2>
+            <p class="text-slate-600 mb-4">
+                Enter your individual training goals here, in as much or as little detail as you want. 
+                This will be included when you export your data for LLM-assisted planning. 
+                We'll version control your responses to help future LLMs understand your progression.
+            </p>
+            <div class="space-y-4">
+                <div>
+                    <label for="user-prompt-textarea" class="font-semibold">Your Training Goals</label>
+                    <textarea id="user-prompt-textarea" rows="10" 
+                        placeholder="Example: I'm working towards a marathon on March 22nd, 2026. My stretch goal target time is 3:15 (7:25 pace). A few weeks ago, I finished my first half marathon at a 7:46 pace and felt strong. I'd like to plan workouts through the end of 2025, focusing on heart rate, speed, and strength workouts. I have access to a track and home equipment."
+                        class="w-full p-3 border-2 border-black rounded mt-1"></textarea>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button onclick="toggleModal('user-prompt-modal')" class="bg-slate-200 text-black py-2 px-4 rounded border-2 border-black font-semibold hover:bg-slate-300">Cancel</button>
+                    <button onclick="saveUserPrompt()" class="bg-yellow-400 text-black py-2 px-4 rounded border-2 border-black font-bold hover:bg-yellow-500">Save Goals</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="export-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white p-6 rounded-lg w-full max-w-md border-2 border-black neo-shadow">
+            <h2 class="text-2xl font-bold mb-4">Export Options</h2>
+            <p class="text-slate-600 mb-4">Choose what to include in your export for LLM analysis:</p>
+            <div class="space-y-3">
+                <button onclick="performExport(false)" class="w-full bg-blue-500 text-white py-3 px-4 rounded border-2 border-black font-semibold hover:bg-blue-600">
+                    Export Current Plan Only
+                </button>
+                <button onclick="performExport(true)" class="w-full bg-blue-500 text-white py-3 px-4 rounded border-2 border-black font-semibold hover:bg-blue-600">
+                    Export All Plans & History
+                </button>
+                <button onclick="toggleModal('export-modal')" class="w-full bg-slate-200 text-black py-2 px-4 rounded border-2 border-black font-semibold hover:bg-slate-300">
+                    Cancel
+                </button>
             </div>
         </div>
     </div>
@@ -65,10 +106,13 @@
         <hr/>
         <div>
             <h2 class="text-2xl font-bold mb-2">Plan Management</h2>
-            <p class="text-slate-600 mb-4">Export your progress to an LLM for an updated plan.</p>
-            <div class="flex space-x-2">
-                 <button onclick="exportPlan()" class="bg-blue-500 text-white py-2 px-4 rounded border-2 border-black font-semibold hover:bg-blue-600 flex-1">Export for LLM</button>
-                 <button onclick="toggleImport()" class="bg-slate-200 text-black py-2 px-4 rounded border-2 border-black font-semibold hover:bg-slate-300">Import New</button>
+            <p class="text-slate-600 mb-4">Set your training goals and export your progress to an LLM for an updated plan.</p>
+            <div class="space-y-2">
+                 <button onclick="openUserPromptModal()" class="w-full bg-yellow-400 text-black py-2 px-4 rounded border-2 border-black font-semibold hover:bg-yellow-500">Set Training Goals</button>
+                 <div class="flex space-x-2">
+                      <button onclick="exportPlan()" class="bg-blue-500 text-white py-2 px-4 rounded border-2 border-black font-semibold hover:bg-blue-600 flex-1">Export for LLM</button>
+                      <button onclick="toggleImport()" class="bg-slate-200 text-black py-2 px-4 rounded border-2 border-black font-semibold hover:bg-slate-300">Import New</button>
+                 </div>
             </div>
             <div id="import-div" class="hidden mt-4">
                 <textarea id="io-textarea" class="w-full p-2 border-2 border-black rounded h-40" placeholder="Paste the full JSON from the LLM here..."></textarea>
