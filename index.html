@@ -7,10 +7,14 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .neo-shadow { box-shadow: 8px 8px 0px #000; }
+        @media (max-width: 640px) {
+            .neo-shadow { box-shadow: 4px 4px 0px #000; }
+        }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        * { min-width: 0; }
     </style>
     <link rel="icon" type="image/png" href="/run-commit/assets/favicon-96x96.png" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="/run-commit/assets/favicon.svg" />
@@ -19,9 +23,9 @@
     <meta name="apple-mobile-web-app-title" content="RunCommit" />
     <link rel="manifest" href="/run-commit/assets/site.webmanifest" />
 </head>
-<body class="bg-slate-100">
+<body class="bg-slate-100 overflow-x-hidden">
 
-<div class="container mx-auto max-w-2xl p-4 md:p-6">
+<div class="container mx-auto max-w-2xl p-4 md:p-6 w-full">
     <header class="mb-6">
         <h1 class="text-4xl font-bold">RunCommit</h1>
         <p class="text-slate-600">Your adaptive marathon training log.</p>
