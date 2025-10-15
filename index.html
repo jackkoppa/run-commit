@@ -15,6 +15,25 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         * { min-width: 0; }
+        
+        /* Onboarding animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        .slide-up { animation: slideUp 0.4s ease-out; }
+        .scale-in { animation: scaleIn 0.3s ease-out; }
+        .onboarding-step { display: none; }
+        .onboarding-step.active { display: block; }
     </style>
     <link rel="icon" type="image/png" href="/run-commit/assets/favicon-96x96.png" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="/run-commit/assets/favicon.svg" />
@@ -24,6 +43,127 @@
     <link rel="manifest" href="/run-commit/assets/site.webmanifest" />
 </head>
 <body class="bg-slate-100 overflow-x-hidden">
+
+<!-- Onboarding Modal -->
+<div id="onboarding-modal" class="fixed inset-0 bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white p-6 md:p-8 rounded-lg w-full max-w-2xl border-2 border-black neo-shadow scale-in">
+        <!-- Step 1: Welcome -->
+        <div class="onboarding-step active" data-step="1">
+            <div class="text-center mb-6">
+                <h1 class="text-4xl md:text-5xl font-bold mb-2">Welcome to RunCommit! 🏃</h1>
+                <p class="text-slate-600 text-lg">Your adaptive training companion</p>
+            </div>
+            
+            <div class="space-y-4 mb-8">
+                <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+                    <h3 class="font-bold text-lg mb-2">What is RunCommit?</h3>
+                    <p class="text-slate-700">A flexible workout tracker that helps you create AI-powered training plans, log your workouts, and adapt your schedule as you progress.</p>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <button onclick="onboardingNext()" class="w-full bg-yellow-400 text-black py-3 px-4 rounded border-2 border-black font-bold hover:bg-yellow-500 active:translate-x-1 active:translate-y-1 active:shadow-[4px_4px_0px_#000] transition-all">
+                    Get Started
+                </button>
+                <button onclick="loadFromDriveOnboarding()" class="w-full bg-blue-500 text-white py-3 px-4 rounded border-2 border-black font-semibold hover:bg-blue-600">
+                    Load Existing Plan from Google Drive
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 2: Training Goals -->
+        <div class="onboarding-step" data-step="2">
+            <div class="mb-6">
+                <button onclick="onboardingBack()" class="text-slate-600 hover:text-slate-800 mb-4">← Back</button>
+                <h2 class="text-3xl font-bold mb-2">What are you training for?</h2>
+                <p class="text-slate-600">Tell us about your goals. The more detail, the better your AI-generated plan will be!</p>
+            </div>
+            
+            <div class="mb-6">
+                <textarea id="onboarding-goals-textarea" rows="8" 
+                    placeholder="Example: I'm working towards a marathon on March 22nd, 2026. My stretch goal target time is 3:15 (7:25 pace). A few weeks ago, I finished my first half marathon at a 7:46 pace and felt strong. I'd like to plan workouts through the end of 2025, focusing on heart rate, speed, and strength workouts. I have access to a track and home equipment."
+                    class="w-full p-3 border-2 border-black rounded"></textarea>
+                <p class="text-sm text-slate-500 mt-2">💡 Don't worry, you can change this anytime!</p>
+            </div>
+
+            <button onclick="saveOnboardingGoalsAndNext()" class="w-full bg-yellow-400 text-black py-3 px-4 rounded border-2 border-black font-bold hover:bg-yellow-500">
+                Continue
+            </button>
+        </div>
+
+        <!-- Step 3: Instructions -->
+        <div class="onboarding-step" data-step="3">
+            <div class="mb-6">
+                <button onclick="onboardingBack()" class="text-slate-600 hover:text-slate-800 mb-4">← Back</button>
+                <h2 class="text-3xl font-bold mb-4">How to get your AI plan</h2>
+            </div>
+
+            <div class="space-y-4 mb-6">
+                <div class="flex items-start space-x-3">
+                    <div class="bg-yellow-400 text-black font-bold rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 border-2 border-black">1</div>
+                    <div>
+                        <h3 class="font-bold">Copy your workout prompt</h3>
+                        <p class="text-slate-600 text-sm">Click the button below to copy the prompt that includes your goals</p>
+                    </div>
+                </div>
+                <div class="flex items-start space-x-3">
+                    <div class="bg-yellow-400 text-black font-bold rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 border-2 border-black">2</div>
+                    <div>
+                        <h3 class="font-bold">Paste into any LLM</h3>
+                        <p class="text-slate-600 text-sm">Use ChatGPT, Claude, or your favorite AI assistant</p>
+                    </div>
+                </div>
+                <div class="flex items-start space-x-3">
+                    <div class="bg-yellow-400 text-black font-bold rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 border-2 border-black">3</div>
+                    <div>
+                        <h3 class="font-bold">Paste the response back here</h3>
+                        <p class="text-slate-600 text-sm">The AI will give you a JSON workout plan - just paste it into the box below</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 mb-6">
+                <p class="text-sm text-slate-700">
+                    <strong>Example JSON structure:</strong><br>
+                    <code class="text-xs bg-white px-2 py-1 rounded border border-slate-300 inline-block mt-2">
+                        {"version": 1, "goal": "Marathon 3:15", "startDate": "2025-10-13", ...}
+                    </code>
+                </p>
+            </div>
+
+            <button onclick="copyOnboardingPrompt()" class="w-full bg-blue-500 text-white py-3 px-4 rounded border-2 border-black font-bold hover:bg-blue-600 mb-3">
+                📋 Copy Workout Prompt
+            </button>
+            <button onclick="onboardingNext()" class="w-full bg-yellow-400 text-black py-3 px-4 rounded border-2 border-black font-bold hover:bg-yellow-500">
+                Continue to Paste Response
+            </button>
+        </div>
+
+        <!-- Step 4: Import Plan -->
+        <div class="onboarding-step" data-step="4">
+            <div class="mb-6">
+                <button onclick="onboardingBack()" class="text-slate-600 hover:text-slate-800 mb-4">← Back</button>
+                <h2 class="text-3xl font-bold mb-2">Paste your AI-generated plan</h2>
+                <p class="text-slate-600">Copy the entire JSON response from your LLM and paste it below.</p>
+            </div>
+
+            <div class="mb-6">
+                <textarea id="onboarding-plan-textarea" rows="8" 
+                    placeholder='Paste the full JSON response here, e.g., {"version": 1, "goal": "Marathon 3:15", "startDate": "2025-10-13", ...}'
+                    class="w-full p-3 border-2 border-black rounded font-mono text-sm"></textarea>
+            </div>
+
+            <div class="space-y-3">
+                <button onclick="importOnboardingPlan()" class="w-full bg-green-500 text-white py-3 px-4 rounded border-2 border-black font-bold hover:bg-green-600">
+                    🚀 Start My Training
+                </button>
+                <button onclick="skipOnboarding()" class="w-full bg-slate-200 text-slate-700 py-2 px-4 rounded border-2 border-black font-semibold hover:bg-slate-300 text-sm">
+                    Skip for now (I'll add a plan later)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="container mx-auto max-w-2xl p-4 md:p-6 w-full">
     <header class="mb-6">
