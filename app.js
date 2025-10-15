@@ -155,23 +155,23 @@ function renderPlan() {
         dayEl.dataset.date = dateString;
         dayEl.innerHTML = `
             <div class="flex justify-between items-start">
-                <div class="flex-1">
-                    <div class="flex items-center space-x-2">
+                <div class="flex-1 min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
                          <span class="text-sm font-bold px-2 py-0.5 rounded-full ${statusClass}">${statusText}</span>
                          <input type="date" value="${dateString}" onchange="changeWorkoutDate(${item.day}, this.value)" class="text-lg font-bold bg-transparent">
                     </div>
-                    <div class="mt-2 flex items-center space-x-2">
+                    <div class="mt-2 flex flex-col sm:flex-row gap-2">
                         <select onchange="updateWorkoutType(${item.day}, this.value, document.getElementById('details-${item.day}').value)" 
-                                class="p-2 border-2 border-black rounded text-slate-800 font-semibold">
+                                class="w-full sm:w-auto p-2 border-2 border-black rounded text-slate-800 font-semibold">
                             ${workoutTypeOptions}
                         </select>
                         <input type="text" id="details-${item.day}" value="${details}" 
                                onblur="updateWorkoutType(${item.day}, document.querySelector('[onchange*=\\'updateWorkoutType(${item.day}\\']').value, this.value)" 
                                placeholder="e.g., 4mi, 2mi WU + 3x1mi @T"
-                               class="flex-1 p-2 border-2 border-black rounded text-slate-800" />
+                               class="w-full sm:flex-1 p-2 border-2 border-black rounded text-slate-800" />
                     </div>
                 </div>
-                <div class="relative ml-2">
+                <div class="relative ml-2 flex-shrink-0">
                     <button onclick="toggleWorkoutMenu(${item.day})" class="text-gray-500 hover:text-gray-700 p-2">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path></svg>
                     </button>
