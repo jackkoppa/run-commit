@@ -49,21 +49,30 @@ function showToast(message, type = 'info') {
     }, 5000);
 }
 
+// --- ONBOARDING STATE ---
+let isFirstLoad = false;
+
 // --- CORE APP LOGIC ---
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
-    populateWorkoutTypes();
-    renderPlan();
-    scrollToUpcoming();
+    if (!isFirstLoad) {
+        populateWorkoutTypes();
+        renderPlan();
+        scrollToUpcoming();
+    }
 });
 
 function loadData() {
     const savedData = localStorage.getItem('runCommitData');
     if (savedData) {
         appData = JSON.parse(savedData);
+        isFirstLoad = false;
     } else {
-        appData = { currentPlanVersion: 1, plans: [initialPlan], completed: {}, userPrompts: [] };
-        saveData();
+        // First load - show onboarding instead of using initial plan
+        isFirstLoad = true;
+        appData = { currentPlanVersion: 0, plans: [], completed: {}, userPrompts: [] };
+        // Don't save data yet - wait for user to complete onboarding
+        showOnboarding();
     }
 }
 
@@ -73,6 +82,9 @@ function saveData() {
 }
 
 function getCurrentPlan() {
+    if (!appData.plans || appData.plans.length === 0) {
+        return null;
+    }
     return appData.plans.find(p => p.version === appData.currentPlanVersion) || appData.plans[0];
 }
 
@@ -297,8 +309,20 @@ function toggleModal(modalId) {
 
 function populateWorkoutTypes() {
     const select = document.getElementById('workout-type');
+    if (!select) return;
     select.innerHTML = '';
-    const legend = getCurrentPlan().legend;
+    const plan = getCurrentPlan();
+    if (!plan || !plan.legend) {
+        // Add default workout types if no plan exists
+        WORKOUT_TYPES.forEach(type => {
+            const option = document.createElement('option');
+            option.value = type;
+            option.textContent = type;
+            select.appendChild(option);
+        });
+        return;
+    }
+    const legend = plan.legend;
     for (const key in legend) {
         const planString = key.startsWith('S_') ? key : `${key} workout`;
         const option = document.createElement('option');
@@ -644,4 +668,204 @@ async function loadFromDrive() {
 
 // Kick off the Google auth process after the page loads
 window.onload = handleClientLoad;
+
+// --- ONBOARDING FLOW ---
+function showOnboarding() {
+    document.getElementById('onboarding-modal').classList.remove('hidden');
+}
+
+function hideOnboarding() {
+    document.getElementById('onboarding-modal').classList.add('hidden');
+}
+
+function onboardingNext() {
+    const currentStep = document.querySelector('.onboarding-step.active');
+    const currentStepNum = parseInt(currentStep.dataset.step);
+    const nextStep = document.querySelector(`.onboarding-step[data-step="${currentStepNum + 1}"]`);
+    
+    if (nextStep) {
+        currentStep.classList.remove('active');
+        nextStep.classList.add('active');
+        nextStep.classList.add('slide-up');
+        setTimeout(() => nextStep.classList.remove('slide-up'), 400);
+    }
+}
+
+function onboardingBack() {
+    const currentStep = document.querySelector('.onboarding-step.active');
+    const currentStepNum = parseInt(currentStep.dataset.step);
+    const prevStep = document.querySelector(`.onboarding-step[data-step="${currentStepNum - 1}"]`);
+    
+    if (prevStep) {
+        currentStep.classList.remove('active');
+        prevStep.classList.add('active');
+        prevStep.classList.add('slide-up');
+        setTimeout(() => prevStep.classList.remove('slide-up'), 400);
+    }
+}
+
+function saveOnboardingGoalsAndNext() {
+    const goalsText = document.getElementById('onboarding-goals-textarea').value.trim();
+    
+    if (!goalsText) {
+        showToast("Please enter your training goals to continue.", "warning");
+        return;
+    }
+    
+    // Save goals temporarily (will be persisted when plan is loaded)
+    if (!appData.userPrompts) {
+        appData.userPrompts = [];
+    }
+    appData.userPrompts.push({
+        prompt: goalsText,
+        timestamp: new Date().toISOString(),
+        planVersion: 1
+    });
+    
+    onboardingNext();
+}
+
+function copyOnboardingPrompt() {
+    const latestUserPrompt = appData.userPrompts && appData.userPrompts.length > 0 
+        ? appData.userPrompts[appData.userPrompts.length - 1].prompt 
+        : '';
+    
+    if (!latestUserPrompt) {
+        showToast("Please go back and enter your training goals first.", "warning");
+        return;
+    }
+    
+    const systemPrompt = `You are an expert running coach AI. Create a personalized training plan based on the user's goals.
+
+User's Training Goals:
+${latestUserPrompt}
+
+Instructions:
+- Create a complete training plan with a weekly schedule
+- Use day numbers starting from 1
+- Include a 'legend' object for abbreviations (e.g., {"LR": "Long Run", "E": "Easy Run", "MP": "Marathon Pace Run", "T": "Tempo Run", "S_A": "Strength A (Glutes & Core)", "S_B": "Strength B (Power & Stability)", "XT": "Cross-Training", "R": "Rest"})
+- Set version to 1
+- Set startDate to today's date in YYYY-MM-DD format
+- Structure: {"version": 1, "goal": "Brief goal description", "startDate": "YYYY-MM-DD", "legend": {...}, "schedule": [{"day": 1, "plan": "R"}, {"day": 2, "plan": "E 4mi"}, ...]}
+- Your response MUST be ONLY the JSON object, starting with { and ending with }
+
+Example structure:
+${JSON.stringify(initialPlan, null, 2)}
+
+Please create a training plan for this user following the same structure.`;
+
+    navigator.clipboard.writeText(systemPrompt).then(() => {
+        showToast('Prompt copied to clipboard! Paste it into your favorite LLM.', 'success');
+    }).catch(() => {
+        showToast('Failed to copy to clipboard', 'error');
+    });
+}
+
+function importOnboardingPlan() {
+    const planText = document.getElementById('onboarding-plan-textarea').value.trim();
+    
+    if (!planText) {
+        showToast("Please paste your AI-generated plan.", "warning");
+        return;
+    }
+    
+    try {
+        const newPlan = JSON.parse(planText);
+        
+        if (!newPlan.version || !newPlan.schedule) {
+            throw new Error("Invalid plan format. Make sure it has 'version' and 'schedule' fields.");
+        }
+        
+        // Initialize app data with the new plan
+        appData.plans = [newPlan];
+        appData.currentPlanVersion = newPlan.version;
+        
+        // Save everything
+        localStorage.setItem('runCommitData', JSON.stringify(appData));
+        
+        // Hide onboarding and initialize the app
+        hideOnboarding();
+        isFirstLoad = false;
+        populateWorkoutTypes();
+        renderPlan();
+        scrollToUpcoming();
+        
+        showToast('Welcome to RunCommit! Your training plan is ready.', 'success');
+    } catch (e) {
+        showToast("Error parsing plan. Make sure you pasted the complete JSON response. Error: " + e.message, "error");
+    }
+}
+
+function skipOnboarding() {
+    // Initialize with empty state (no default plan)
+    appData = { currentPlanVersion: 0, plans: [], completed: {}, userPrompts: appData.userPrompts || [] };
+    localStorage.setItem('runCommitData', JSON.stringify(appData));
+    
+    hideOnboarding();
+    isFirstLoad = false;
+    
+    // Show empty state message
+    const container = document.getElementById('plan-container');
+    container.innerHTML = `
+        <div class="bg-white p-8 rounded-lg border-2 border-black neo-shadow text-center">
+            <h2 class="text-2xl font-bold mb-4">Ready to start your training journey!</h2>
+            <p class="text-slate-600 mb-6">Get started by setting your training goals and generating your first plan.</p>
+            <button onclick="openUserPromptModal()" class="bg-yellow-400 text-black py-3 px-6 rounded border-2 border-black font-bold hover:bg-yellow-500">
+                Set Training Goals
+            </button>
+        </div>
+    `;
+    
+    showToast('You can create your plan anytime using the Plan Management section below.', 'info');
+}
+
+async function loadFromDriveOnboarding() {
+    // Check if Google Drive is initialized
+    if (!tokenClient) {
+        showToast('Please wait for Google Drive to initialize...', 'warning');
+        setTimeout(loadFromDriveOnboarding, 1000);
+        return;
+    }
+    
+    // Request access token
+    tokenClient.requestAccessToken({ 
+        prompt: 'consent',
+        callback: async (tokenResponse) => {
+            accessToken = tokenResponse.access_token;
+            gapi.client.setToken({
+                access_token: tokenResponse.access_token
+            });
+            
+            try {
+                const fileId = await getFileId();
+                if (!fileId) {
+                    showToast('No backup file found in Google Drive. Please continue with onboarding.', 'warning');
+                    return;
+                }
+
+                const response = await gapi.client.drive.files.get({
+                    fileId: fileId,
+                    alt: 'media'
+                });
+                
+                const driveData = JSON.parse(response.body);
+                appData = driveData;
+                localStorage.setItem('runCommitData', JSON.stringify(appData));
+                
+                // Hide onboarding and initialize app
+                hideOnboarding();
+                isFirstLoad = false;
+                populateWorkoutTypes();
+                renderPlan();
+                scrollToUpcoming();
+                updateSigninStatus(true);
+                
+                showToast('Data loaded successfully from Google Drive!', 'success');
+            } catch(e) {
+                console.error('Error loading from Drive:', e);
+                showToast('Failed to load data from Google Drive. Error: ' + e.message, 'error');
+            }
+        }
+    });
+}
 
